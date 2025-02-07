@@ -16,11 +16,28 @@ This project explores the factors influencing engagement on Reddit comments usin
 ---
 
 ## Statistical Description of the Dataset
-- **Data Types & Structure**:
-  - The dataset consists of **16 features** (including numerical, categorical, and binary variables).
-  - **Continuous variables:** Sentiment score, comment score, text length, word count, user karma, account age, comment age.
-  - **Categorical variables:** Subreddit name, comment hour, comment day.
-  - **Binary variables:** Contains emoji, contains question, contains profanity, is early comment.
+- **Data Types & Structure**: The dataset consists of **17 features**, including **numerical, categorical, and binary variables**.
+
+- **Continuous Variables** (Numeric):
+  - **Sentiment Score** – Sentiment polarity score of the comment.
+  - **Comment Score** – Upvotes minus downvotes.
+  - **Text Length** – Total number of characters in the comment.
+  - **Word Count** – Total number of words in the comment.
+  - **Comment Age (hours)** – Time since the post was made (in hours).
+  - **Parent Score** – The score of the parent comment (if applicable).
+  - **User Karma** – Total comment karma of the user posting the comment.
+  - **Account Age (days)** – Number of days since the user account was created.
+
+- **Categorical Variables**:
+  - **Subreddit Name** – The subreddit the comment was posted in.
+  - **Comment Hour** – Hour of the day the comment was posted.
+  - **Comment Day** – Day of the week the comment was posted.
+
+- **Binary Variables** (0 = No, 1 = Yes):
+  - **Contains Emoji** – Whether the comment contains emojis.
+  - **Contains Question** – Whether the comment contains a question.
+  - **Contains Profanity** – Whether the comment contains profanity.
+  - **Is Early Comment** – Whether the comment was posted within 1 hour of the original post.
 
 ## Proposal Writing Guidelines
 - The **proposal is limited to 2 pages** (font size **10**).
