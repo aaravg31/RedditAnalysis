@@ -1,0 +1,257 @@
+---
+title: "Main_Analysis"
+authors: "Aarav Gosalia, Aleric Govender, Jordi Capdevila Maso"
+date: "2025-03-19"
+output: pdf_document
+---
+
+## EDA
+
+```{r}
+# Load necessary libraries
+library(readr)
+library(tidyverse)
+
+# 1. Load and Clean Data
+csv_file <- "reddit_engagement_data.csv"
+df <- read_csv(csv_file, show_col_types = FALSE)
+df_cleaned <- df %>% 
+  drop_na()
+
+df_cleaned <- df_cleaned %>%
+  mutate(
+    `Subreddit Name` = as.factor(`Subreddit Name`),
+    `Contains Question` = as.factor(`Contains Question`),
+    `Contains Emoji` = as.factor(`Contains Emoji`),
+    `Contains Profanity` = as.factor(`Contains Profanity`),
+    `Is Early Comment` = as.factor(`Is Early Comment`),
+    `Comment Hour` = as.factor(`Comment Hour`),
+    `Comment Day` = as.factor(`Comment Day`)
+  )
+
+names(df_cleaned) <- gsub(" ", "_", names(df_cleaned))
+names(df_cleaned) <- gsub("[()]", "", names(df_cleaned))
+
+# Optional: write cleaned data to file
+#write_csv(df_cleaned, "reddit_cleaned.csv")
+
+# 2. Basic Summary Statistics
+summary(df_cleaned)
+
+# 3. Full Distribution of Comment Score
+ggplot(df_cleaned, aes(x = Comment_Score)) +
+  geom_histogram(bins = 50, fill = "lightblue", color = "white") +
+  labs(
+    title = "Histogram of Comment Scores",
+    x = "Comment Score",
+    y = "Count"
+  ) +
+  theme_minimal()
+
+# 4. Zoomed-In Distribution (-10 to 50)
+df_filtered <- df_cleaned %>% filter(Comment_Score >= -10 & Comment_Score <= 50)
+ggplot(df_filtered, aes(x = (Comment_Score))) +
+  geom_histogram(fill = "darkblue", bins = 60, alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Truncated Distribution of Comment Scores",
+       x = "Comment Score",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+## Inverse Hyperbolic Sine (IHS) Transformation Approach
+
+```{r}
+# Distribution of Transformed Comment_Score using asinh() 
+ggplot(df_cleaned, aes(x = asinh(Comment_Score))) +
+  geom_histogram(fill = "darkviolet", bins = 60, alpha = 0.7) +
+  theme_minimal() +
+  labs(title = "Distribution of IHS Transformed Comment Scores",
+       x = "asinh(Comment Score)",
+       y = "Frequency") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Shifted Score Approaches
+
+```{r}
+shift_df <- df_cleaned
+lowest_score <- min(shift_df$Comment_Score)
+shift_df$Comment_Score_shift <- shift_df$Comment_Score + abs(lowest_score) + 1
+```
+
+
+### Log-Linear Multiple Linear Regression
+
+```{r}
+library(MASS)
+
+shift_df$log_score <- log(shift_df$Comment_Score_shift)
+
+#Force Sentiment_Score to be part of the model
+model_null_mlr <- lm(log_score ~ Sentiment_Score, data = shift_df)
+
+#model_null_mlr <- lm(log_score ~ 1, data = shift_df)
+
+model_full_mlr <- lm(log_score ~ Sentiment_Score + Text_Length + Word_Count + 
+                   Contains_Question + Contains_Emoji + Contains_Profanity + 
+                   Comment_Age_hours + Comment_Hour + Comment_Day + 
+                   Is_Early_Comment + Parent_Score + User_Karma + 
+                   Account_Age_days + Subreddit_Name, data = shift_df)
+
+step_model_mlr <- stepAIC(model_null_mlr, 
+                          scope = list(lower = model_null_mlr, upper = model_full_mlr), 
+                          direction = "forward", 
+                          trace = TRUE)
+
+summary(step_model_mlr)
+
+par(mfrow=c(2,2))
+plot(step_model_mlr)
+par(mfrow=c(1,1))
+```
+### Gamma Regression with Log Link
+
+```{r}
+#Force Sentiment_Score to be part of the model
+model_null_gamma <- glm(Comment_Score_shift ~ Sentiment_Score, family = Gamma(link = "log"), data = shift_df)
+
+#model_null_gamma <- glm(Comment_Score_shift ~ 1, family = Gamma(link = "log"), data = shift_df)
+
+model_full_gamma <- glm(Comment_Score_shift ~ Sentiment_Score + Text_Length + Word_Count + 
+                   Contains_Question + Contains_Emoji + Contains_Profanity + 
+                   Comment_Age_hours + Comment_Hour + Comment_Day + 
+                   Is_Early_Comment + Parent_Score + User_Karma + 
+                   Account_Age_days + Subreddit_Name, family = Gamma(link = "log"), data = shift_df)
+
+step_model_gamma <- stepAIC(model_null_gamma, 
+                            scope = list(lower = model_null_gamma, upper = model_full_gamma), 
+                            direction = "forward", 
+                            trace = TRUE)
+
+summary(step_model_gamma)
+
+par(mfrow=c(2,2))
+plot(step_model_gamma)
+par(mfrow=c(1,1))
+```
+### Generalized Additive Model (GAM)
+
+```{r}
+library(mgcv)
+
+gam_model <- gam(Comment_Score_shift ~ 
+                   s(User_Karma) +
+                   Comment_Age_hours + 
+                   s(Word_Count) + 
+                   s(Account_Age_days) + 
+                   s(Text_Length) +
+                   s(Parent_Score) +
+                   s(Sentiment_Score) + 
+                   Is_Early_Comment + 
+                   Subreddit_Name + 
+                   Comment_Day + 
+                   Comment_Hour + 
+                   Contains_Question + 
+                   Contains_Emoji + 
+                   Contains_Profanity, data = shift_df)
+
+summary(gam_model)
+
+plot(gam_model, pages = 1, shade = TRUE)
+
+par(mfrow=c(2,2))
+gam.check(gam_model)
+par(mfrow=c(1,1))
+```
+
+##Fitting Other Shifting Based Models (Not used in paper)
+
+### Poisson Model
+
+```{r}
+full.model <- glm(Comment_Score_shift ~ Sentiment_Score + Text_Length + Word_Count + 
+                   Contains_Question + Contains_Emoji + Contains_Profanity + 
+                   Comment_Age_hours + Comment_Hour + Comment_Day + 
+                   Is_Early_Comment + Parent_Score + User_Karma + 
+                   Account_Age_days + Subreddit_Name, data = shift_df, family = poisson)
+
+summary(full.model)
+
+par(mfrow=c(2,2))
+plot(full.model)
+par(mfrow=c(1,1))
+```
+### Negative Binomial Model
+
+```{r}
+nb.model <- glm.nb(Comment_Score_shift ~ Sentiment_Score + Text_Length + Word_Count + 
+                   Contains_Question + Contains_Emoji + Contains_Profanity + 
+                   Comment_Age_hours + Comment_Hour + Comment_Day + 
+                   Is_Early_Comment + Parent_Score + User_Karma + 
+                   Account_Age_days + Subreddit_Name, data = shift_df)
+summary(nb.model)
+
+par(mfrow=c(2,2))
+plot(nb.model)
+par(mfrow=c(1,1))
+```
+## Extra : Fitting IHS models (Not used in report)
+
+### Multiple Linear Regression (MLR)
+
+```{r}
+library(MASS)
+
+# Create the IHS-transformed response variable (using asinh)
+df_cleaned <- df_cleaned %>% 
+  mutate(ihs_score = asinh(Comment_Score))
+
+model_null <- lm(ihs_score ~ 1, data = df_cleaned)
+
+model_full <- lm(ihs_score ~ Sentiment_Score + Text_Length + Word_Count + 
+                   Contains_Question + Contains_Emoji + Contains_Profanity + 
+                   Comment_Age_hours + Comment_Hour + Comment_Day + 
+                   Is_Early_Comment + Parent_Score + User_Karma + 
+                   Account_Age_days + Subreddit_Name , data = df_cleaned)
+
+step_model <- stepAIC(model_null, 
+                      scope = list(lower = model_null, upper = model_full), 
+                      direction = "forward", 
+                      trace = TRUE)
+
+summary(step_model)
+
+par(mfrow = c(2, 2))
+plot(step_model)
+par(mfrow = c(1, 1))
+```
+### GAM (2)
+
+```{r}
+gam_model <- gam(ihs_score ~ 
+                  s(Comment_Age_hours) + 
+                  s(User_Karma) + 
+                  s(Word_Count) + 
+                  s(Account_Age_days) + 
+                  s(Sentiment_Score) + 
+                  s(Text_Length) +
+                  s(Parent_Score) +
+                  Is_Early_Comment + 
+                  Subreddit_Name + 
+                  Comment_Day + 
+                  Comment_Hour + 
+                  Contains_Question + 
+                  Contains_Emoji + 
+                  Contains_Profanity,
+                data = df_cleaned, 
+                select = TRUE)
+
+summary(gam_model)
+
+plot(gam_model, pages = 1, shade = TRUE)
+
+par(mfrow=c(2,2))
+gam.check(gam_model)
+par(mfrow=c(1,1))
+```
