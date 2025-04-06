@@ -2,13 +2,15 @@
 
 **Course:** DATA 410  
 **Lead Author:** Aarav Gosalia  
-**Contributors:** Aarav Gosalia, Aleric Govender, Jordi Capdevila Mas
+**Contributors:** Aarav Gosalia, Aleric Govender, Jordi Capdevila Maso
 
 ---
 
 ## Project Overview
 
 This repository contains a data science project analyzing factors that drive higher engagement on Reddit comments. The project was conducted for a DATA 410 class and involves data collection, exploratory data analysis, and multiple regression models to predict comment popularity. The analysis emphasizes the role of metadata over sentiment in determining engagement levels.
+
+**Please read `FinalProjectReport.pdf` to see the final report with findings and conclusions.**
 
 ---
 
